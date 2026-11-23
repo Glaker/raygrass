@@ -1,0 +1,68 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/bricolage-grotesque';
+@import '@fontsource-variable/figtree';
+
+@theme {
+  --color-suelo: #0d1913;
+  --color-hoja: #14241b;
+  --color-hoja-2: #1b2f23;
+  --color-tallo: #2a4434;
+  --color-pasto: #6ccb5f;
+  --color-pasto-claro: #93e07c;
+  --color-pasto-osc: #2e6a36;
+  --color-rocio: #eaf2e6;
+  --color-musgo: #94aa98;
+  --color-paja: #e8be5a;
+  --color-alerta: #ee7a6b;
+
+  --font-display: 'Bricolage Grotesque Variable', system-ui, sans-serif;
+  --font-sans: 'Figtree Variable', system-ui, sans-serif;
+}
+
+html {
+  background: var(--color-suelo);
+  color: var(--color-rocio);
+  font-family: var(--font-sans);
+  font-size: 17px;
+  -webkit-tap-highlight-color: transparent;
+  color-scheme: dark;
+}
+
+body {
+  min-height: 100dvh;
+  background: var(--color-suelo);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+input,
+select,
+textarea {
+  font-size: 1rem; /* evita el zoom automático en iOS */
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-pasto-claro);
+  outline-offset: 2px;
+}
+
+.pb-nav {
+  padding-bottom: calc(6.5rem + env(safe-area-inset-bottom));
+}
+
+@keyframes subir {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.sheet-enter {
+  animation: subir 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
