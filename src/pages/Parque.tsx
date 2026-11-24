@@ -1,4 +1,4 @@
-import { Pencil } from 'lucide-react'
+import { CalendarCheck, CalendarPlus, Pencil } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { CorteForm } from '../components/CorteForm'
@@ -7,6 +7,7 @@ import { TrabajoHoja } from '../components/TrabajoHoja'
 import { Boton, Cargando, Encabezado, Error, EstadoCobro, Hoja, Lista, Seccion, Vacio } from '../components/ui'
 import { useDatos } from '../lib/api'
 import { duracion, fechaCorta, haceDias, numero, plata } from '../lib/format'
+import { usePlan } from '../lib/plan'
 import { statsParque } from '../lib/stats'
 import type { Trabajo } from '../lib/types'
 
@@ -16,6 +17,7 @@ export function ParquePagina() {
   const [cortando, setCortando] = useState(false)
   const [abierto, setAbierto] = useState<Trabajo | null>(null)
   const [mostrar, setMostrar] = useState(20)
+  const plan = usePlan(trabajos)
 
   const parque = parques.find((p) => p.id === id)
   const cliente = clientes.find((c) => c.id === parque?.cliente_id)
@@ -65,9 +67,18 @@ export function ParquePagina() {
           </div>
         </div>
         {parque.activo ? (
-          <Boton className="mt-4 w-full" onClick={() => setCortando(true)}>
-            Registrar corte
-          </Boton>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {plan.ids.has(parque.id) ? (
+              <Boton variante="secundario" onClick={() => plan.quitar([parque.id])} aria-label="Quitar del plan de corte">
+                <CalendarCheck className="size-5 text-pasto-claro" /> En el plan
+              </Boton>
+            ) : (
+              <Boton variante="secundario" onClick={() => plan.agregar([parque.id])}>
+                <CalendarPlus className="size-5" /> Al plan
+              </Boton>
+            )}
+            <Boton onClick={() => setCortando(true)}>Registrar corte</Boton>
+          </div>
         ) : (
           <p className="mt-3 text-musgo">Este lugar está marcado como que ya no se corta.</p>
         )}

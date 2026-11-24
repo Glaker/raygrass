@@ -7,23 +7,17 @@ import { ElegirPlan } from '../components/ElegirPlan'
 import { Marca } from '../components/Logo'
 import { Boton, Cargando, Error, EstadoCobro, Hoja, Lista, Seccion, Vacio } from '../components/ui'
 import { useDatos } from '../lib/api'
-import { useGuardado } from '../lib/guardado'
+import { usePlan } from '../lib/plan'
 import { fechaCorta, hoy, nombreMes, plata } from '../lib/format'
 import { mesDe, saldosPorCliente, statsParque } from '../lib/stats'
 import type { Parque } from '../lib/types'
-
-/** Un parque en el plan y desde cuándo (ISO), para sacarlo cuando se registre su corte. */
-interface EnPlan {
-  id: string
-  desde: string
-}
 
 export function Inicio() {
   const { clientes, parques, trabajos, pagos, gastos, cargando, error } = useDatos()
   const [cortando, setCortando] = useState<Parque | null>(null)
   const [verTodos, setVerTodos] = useState(false)
   const [eligiendo, setEligiendo] = useState(false)
-  const [guardado, setGuardado] = useGuardado<EnPlan[]>('raygrass.plan', [])
+  const enPlan = usePlan(trabajos)
 
   const nombreCliente = useMemo(() => new Map(clientes.map((c) => [c.id, c.nombre])), [clientes])
   const nombreParque = useMemo(() => new Map(parques.map((p) => [p.id, p])), [parques])
@@ -42,18 +36,10 @@ export function Inicio() {
   const tocan = activos.filter((x) => x.s.avance != null && x.s.avance >= 1 && x.s.avance <= 3)
   const olvidados = activos.filter((x) => x.s.avance != null && x.s.avance > 3)
 
-  // Un parque sale del plan cuando se registra un corte suyo después de haberlo agregado.
-  const plan = useMemo(() => {
-    const cortadoDesde = (id: string, desde: string) =>
-      trabajos.some((t) => t.parque_id === id && t.tipo === 'corte' && t.created_at > desde)
-    const vigentes = new Map(guardado.filter((e) => !cortadoDesde(e.id, e.desde)).map((e) => [e.id, e]))
-    return activos.filter((x) => vigentes.has(x.p.id))
-  }, [guardado, activos, trabajos])
+  const plan = useMemo(() => activos.filter((x) => enPlan.ids.has(x.p.id)), [activos, enPlan.ids])
 
   const guardarPlan = (ids: string[]) => {
-    const ahora = new Date().toISOString()
-    const previos = new Map(guardado.map((e) => [e.id, e.desde]))
-    setGuardado(ids.map((id) => ({ id, desde: previos.get(id) ?? ahora })))
+    enPlan.fijar(ids)
     setEligiendo(false)
   }
 

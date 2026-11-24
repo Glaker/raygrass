@@ -32,17 +32,19 @@ export function ElegirPlan({ opciones, elegidos, onListo }: { opciones: Opcion[]
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-musgo" />
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar cliente o lugar"
-          aria-label="Buscar cliente o lugar"
-          className={`${claseInput} pl-11`}
-        />
-      </div>
+      {opciones.length > 6 && (
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-musgo" />
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar cliente o lugar"
+            aria-label="Buscar cliente o lugar"
+            className={`${claseInput} pl-11`}
+          />
+        </div>
+      )}
       <ul className="divide-y divide-tallo/70 overflow-hidden rounded-2xl border border-tallo bg-suelo">
         {filtradas.map(({ p, s, cliente }) => {
           const marcado = marcados.has(p.id)
@@ -75,7 +77,7 @@ export function ElegirPlan({ opciones, elegidos, onListo }: { opciones: Opcion[]
       </ul>
       <div className="sticky bottom-0 -mx-5 bg-hoja px-5 pt-2">
         <Boton className="w-full" onClick={() => onListo([...marcados])}>
-          {marcados.size ? `Guardar plan (${marcados.size})` : 'Guardar plan vacío'}
+          {opciones.length > 6 ? `Guardar plan (${marcados.size})` : 'Listo'}
         </Boton>
       </div>
     </div>

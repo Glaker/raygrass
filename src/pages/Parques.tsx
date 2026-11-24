@@ -1,20 +1,26 @@
-import { Search, UserPlus } from 'lucide-react'
+import { CalendarCheck, CalendarPlus, Search, UserPlus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Cargando, Encabezado, Error, Lista, Segmentado, Vacio, claseInput } from '../components/ui'
+import { ElegirPlan } from '../components/ElegirPlan'
+import { Cargando, Encabezado, Error, Hoja, Lista, Segmentado, Vacio, claseInput } from '../components/ui'
 import { useDatos } from '../lib/api'
 import { fechaCorta, plata } from '../lib/format'
 import { useGuardado } from '../lib/guardado'
-import { saldosPorCliente } from '../lib/stats'
+import { usePlan } from '../lib/plan'
+import { saldosPorCliente, statsParque } from '../lib/stats'
+import type { Cliente } from '../lib/types'
 
 type Orden = 'nombre' | 'viejo' | 'nuevo'
+type Filtro = 'activos' | 'inactivos' | 'deben' | 'todos'
 
 const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 export function Parques() {
   const { clientes, parques, trabajos, pagos, cargando, error } = useDatos()
   const [busqueda, setBusqueda] = useState('')
-  const [filtro, setFiltro] = useState<'todos' | 'deben'>('todos')
+  const [filtro, setFiltro] = useGuardado<Filtro>('raygrass.filtro-parques', 'activos')
+  const [eligiendo, setEligiendo] = useState<Cliente | null>(null)
+  const plan = usePlan(trabajos)
   const [orden, setOrden] = useGuardado<Orden>('raygrass.orden-parques', 'nombre')
 
   const saldos = useMemo(() => saldosPorCliente(trabajos, pagos), [trabajos, pagos])
@@ -34,7 +40,13 @@ export function Parques() {
         saldo: saldos.get(c.id)?.saldo ?? 0,
         ultimo: ultimoCorte.get(c.id) ?? null,
       }))
-      .filter((x) => filtro === 'todos' || x.saldo > 0)
+      .filter((x) => {
+        const activo = x.lugares.some((p) => p.activo)
+        if (filtro === 'activos') return activo
+        if (filtro === 'inactivos') return !activo
+        if (filtro === 'deben') return x.saldo > 0
+        return true
+      })
       .filter((x) => !q || normalizar(x.c.nombre + ' ' + x.lugares.map((p) => p.nombre + ' ' + (p.direccion ?? '')).join(' ')).includes(q))
     if (orden === 'nombre') return xs
     // los que nunca se cortaron van al final en los dos sentidos
@@ -46,6 +58,32 @@ export function Parques() {
   }, [clientes, parques, saldos, ultimoCorte, busqueda, filtro, orden])
 
   if (cargando) return <Cargando />
+
+  const BotonPlan = ({ cliente, activos }: { cliente: Cliente; activos: string[] }) => {
+    const enPlan = activos.filter((id) => plan.ids.has(id)).length
+    const todos = enPlan === activos.length
+    const Icono = enPlan ? CalendarCheck : CalendarPlus
+    return (
+      <button
+        onClick={() => {
+          if (activos.length > 1) setEligiendo(cliente)
+          else if (todos) plan.quitar(activos)
+          else plan.agregar(activos)
+        }}
+        aria-label={todos ? `Quitar a ${cliente.nombre} del plan de corte` : `Agregar a ${cliente.nombre} al plan de corte`}
+        aria-pressed={activos.length === 1 ? todos : undefined}
+        className={`mr-2 grid size-11 shrink-0 place-items-center rounded-xl active:bg-hoja-2 ${enPlan ? 'text-pasto-claro' : 'text-musgo'}`}
+      >
+        <Icono className="size-5" />
+      </button>
+    )
+  }
+
+  const opcionesCliente = eligiendo
+    ? parques
+        .filter((p) => p.cliente_id === eligiendo.id && p.activo)
+        .map((p) => ({ p, s: statsParque(p, trabajos), cliente: eligiendo.nombre }))
+    : []
 
   return (
     <>
@@ -88,8 +126,10 @@ export function Parques() {
           valor={filtro}
           onChange={setFiltro}
           opciones={[
-            { valor: 'todos', texto: `Todos (${clientes.length})` },
-            { valor: 'deben', texto: 'Con deuda' },
+            { valor: 'activos', texto: 'Activos' },
+            { valor: 'inactivos', texto: 'Inactivos' },
+            { valor: 'deben', texto: 'Deben' },
+            { valor: 'todos', texto: 'Todos' },
           ]}
         />
       </div>
@@ -111,8 +151,8 @@ export function Parques() {
           {lista.map(({ c, lugares, saldo, ultimo }) => {
             const activos = lugares.filter((p) => p.activo)
             return (
-              <li key={c.id}>
-                <Link to={`/clientes/${c.id}`} className="flex items-center gap-3 px-4 py-3.5 active:bg-hoja-2">
+              <li key={c.id} className="flex items-center">
+                <Link to={`/clientes/${c.id}`} className="flex min-w-0 flex-1 items-center gap-3 py-3.5 pr-2 pl-4 active:bg-hoja-2">
                   <div className="min-w-0 flex-1">
                     <p className={`truncate font-medium ${activos.length ? '' : 'text-musgo'}`}>{c.nombre}</p>
                     <p className="truncate text-sm text-musgo">
@@ -124,11 +164,26 @@ export function Parques() {
                   </div>
                   {saldo > 0 && <span className="num shrink-0 text-[0.95rem] font-medium text-paja">{plata(saldo)}</span>}
                 </Link>
+                {activos.length > 0 && <BotonPlan cliente={c} activos={activos.map((p) => p.id)} />}
               </li>
             )
           })}
         </Lista>
       )}
+
+      <Hoja abierta={!!eligiendo} onCerrar={() => setEligiendo(null)} titulo={eligiendo ? `Plan de corte: ${eligiendo.nombre}` : ''}>
+        {eligiendo && (
+          <ElegirPlan
+            opciones={opcionesCliente}
+            elegidos={opcionesCliente.filter((o) => plan.ids.has(o.p.id)).map((o) => o.p.id)}
+            onListo={(ids) => {
+              const deEste = new Set(opcionesCliente.map((o) => o.p.id))
+              plan.fijar([...[...plan.ids].filter((id) => !deEste.has(id)), ...ids])
+              setEligiendo(null)
+            }}
+          />
+        )}
+      </Hoja>
     </>
   )
 }
