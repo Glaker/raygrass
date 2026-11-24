@@ -1,32 +1,61 @@
-import { CircleUser } from 'lucide-react'
+import { CircleUser, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CorteForm } from '../components/CorteForm'
 import { Crecimiento } from '../components/Crecimiento'
+import { ElegirPlan } from '../components/ElegirPlan'
 import { Marca } from '../components/Logo'
-import { Cargando, Error, EstadoCobro, Hoja, Lista, Seccion, Vacio } from '../components/ui'
+import { Boton, Cargando, Error, EstadoCobro, Hoja, Lista, Seccion, Vacio } from '../components/ui'
 import { useDatos } from '../lib/api'
+import { useGuardado } from '../lib/guardado'
 import { fechaCorta, hoy, nombreMes, plata } from '../lib/format'
 import { mesDe, saldosPorCliente, statsParque } from '../lib/stats'
 import type { Parque } from '../lib/types'
+
+/** Un parque en el plan y desde cuándo (ISO), para sacarlo cuando se registre su corte. */
+interface EnPlan {
+  id: string
+  desde: string
+}
 
 export function Inicio() {
   const { clientes, parques, trabajos, pagos, gastos, cargando, error } = useDatos()
   const [cortando, setCortando] = useState<Parque | null>(null)
   const [verTodos, setVerTodos] = useState(false)
+  const [eligiendo, setEligiendo] = useState(false)
+  const [guardado, setGuardado] = useGuardado<EnPlan[]>('raygrass.plan', [])
 
   const nombreCliente = useMemo(() => new Map(clientes.map((c) => [c.id, c.nombre])), [clientes])
   const nombreParque = useMemo(() => new Map(parques.map((p) => [p.id, p])), [parques])
 
+  const activos = useMemo(
+    () =>
+      parques
+        .filter((p) => p.activo)
+        .map((p) => ({ p, s: statsParque(p, trabajos), cliente: nombreCliente.get(p.cliente_id) ?? '' }))
+        // los que más pasados están primero; los que no tienen frecuencia, al final
+        .sort((a, b) => (b.s.avance ?? -1) - (a.s.avance ?? -1) || a.cliente.localeCompare(b.cliente)),
+    [parques, trabajos, nombreCliente],
+  )
+
   // Más de 3 veces su frecuencia sin cortar: probablemente ya no es cliente; va aparte.
-  const { paraCortar, olvidados } = useMemo(() => {
-    const todos = parques
-      .filter((p) => p.activo)
-      .map((p) => ({ p, s: statsParque(p, trabajos) }))
-      .filter((x) => x.s.avance != null && x.s.avance >= 0.75)
-      .sort((a, b) => b.s.avance! - a.s.avance!)
-    return { paraCortar: todos.filter((x) => x.s.avance! <= 3), olvidados: todos.filter((x) => x.s.avance! > 3) }
-  }, [parques, trabajos])
+  const tocan = activos.filter((x) => x.s.avance != null && x.s.avance >= 1 && x.s.avance <= 3)
+  const olvidados = activos.filter((x) => x.s.avance != null && x.s.avance > 3)
+
+  // Un parque sale del plan cuando se registra un corte suyo después de haberlo agregado.
+  const plan = useMemo(() => {
+    const cortadoDesde = (id: string, desde: string) =>
+      trabajos.some((t) => t.parque_id === id && t.tipo === 'corte' && t.created_at > desde)
+    const vigentes = new Map(guardado.filter((e) => !cortadoDesde(e.id, e.desde)).map((e) => [e.id, e]))
+    return activos.filter((x) => vigentes.has(x.p.id))
+  }, [guardado, activos, trabajos])
+
+  const guardarPlan = (ids: string[]) => {
+    const ahora = new Date().toISOString()
+    const previos = new Map(guardado.map((e) => [e.id, e.desde]))
+    setGuardado(ids.map((id) => ({ id, desde: previos.get(id) ?? ahora })))
+    setEligiendo(false)
+  }
 
   const mes = mesDe(hoy())
   const resumen = useMemo(() => {
@@ -43,8 +72,6 @@ export function Inicio() {
 
   if (cargando) return <Cargando />
 
-  const visibles = verTodos ? paraCortar : paraCortar.slice(0, 6)
-
   return (
     <>
       <header className="flex items-center justify-between pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-2">
@@ -57,48 +84,43 @@ export function Inicio() {
 
       <Seccion
         titulo="Para cortar"
-        accion={paraCortar.length > 0 && <span className="text-sm text-musgo">según cada cuánto se corta</span>}
+        accion={plan.length > 0 && <span className="text-sm text-musgo">{plan.length} en el plan</span>}
       >
-        {paraCortar.length === 0 ? (
-          <Vacio>Ningún parque está por cumplir su tiempo de corte.</Vacio>
+        {plan.length === 0 ? (
+          <Vacio>
+            Elegí qué parques vas a cortar.
+            {tocan.length > 0 && ` Ya ${tocan.length === 1 ? 'toca 1' : `tocan ${tocan.length}`} según cada cuánto se cortan.`}
+          </Vacio>
         ) : (
-          <>
-            <Lista>
-              {visibles.map(({ p, s }) => {
-                const atraso = s.diasDesde! - s.frecuencia!
-                return (
-                  <li key={p.id} className="flex items-center gap-3 py-3 pr-3 pl-3">
-                    <Crecimiento avance={s.avance!} semilla={p.id} />
-                    <Link to={`/parques/${p.id}`} className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{nombreCliente.get(p.cliente_id)}</p>
-                      <p className="truncate text-sm text-musgo">
-                        {p.nombre}, cada {s.frecuencia} días
-                      </p>
-                      <p className={`text-sm ${atraso >= 0 ? 'text-paja' : 'text-musgo'}`}>
-                        {atraso > 0
-                          ? `${atraso} ${atraso === 1 ? 'día' : 'días'} pasado`
-                          : atraso === 0
-                            ? 'Toca hoy'
-                            : `Toca en ${-atraso} ${atraso === -1 ? 'día' : 'días'}`}
-                      </p>
-                    </Link>
-                    <button
-                      onClick={() => setCortando(p)}
-                      className="min-h-11 shrink-0 rounded-xl border border-pasto/50 px-3.5 text-[0.95rem] font-semibold text-pasto-claro active:bg-pasto-osc"
-                    >
-                      Cortado
-                    </button>
-                  </li>
-                )
-              })}
-            </Lista>
-            {paraCortar.length > 6 && (
-              <button onClick={() => setVerTodos(!verTodos)} className="mt-2 min-h-11 w-full text-pasto-claro">
-                {verTodos ? 'Ver menos' : `Ver los ${paraCortar.length}`}
-              </button>
-            )}
-          </>
+          <Lista>
+            {(verTodos ? plan : plan.slice(0, 3)).map(({ p, s }) => (
+              <li key={p.id} className="flex items-center gap-3 py-3 pr-3 pl-3">
+                <Crecimiento avance={s.avance ?? 0} semilla={p.id} />
+                <Link to={`/parques/${p.id}`} className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{nombreCliente.get(p.cliente_id)}</p>
+                  <p className="truncate text-sm text-musgo">
+                    {p.nombre}, {s.ultimo ? `último corte ${fechaCorta(s.ultimo)}` : 'sin cortes'}
+                  </p>
+                  <p className="num text-sm font-medium">{plata(p.precio)}</p>
+                </Link>
+                <button
+                  onClick={() => setCortando(p)}
+                  className="min-h-11 shrink-0 rounded-xl border border-pasto/50 px-3.5 text-[0.95rem] font-semibold text-pasto-claro active:bg-pasto-osc"
+                >
+                  Cortado
+                </button>
+              </li>
+            ))}
+          </Lista>
         )}
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <Boton variante="secundario" disabled={plan.length <= 3} onClick={() => setVerTodos(!verTodos)}>
+            {verTodos ? 'Ver menos' : plan.length > 3 ? `Ver todos (${plan.length})` : 'Ver todos'}
+          </Boton>
+          <Boton variante="secundario" onClick={() => setEligiendo(true)}>
+            <Plus className="size-5" /> Agregar más
+          </Boton>
+        </div>
         {olvidados.length > 0 && (
           <details className="mt-3 rounded-2xl border border-tallo px-4 py-3 text-musgo">
             <summary className="min-h-8 cursor-pointer">
@@ -164,6 +186,10 @@ export function Inicio() {
           </Lista>
         )}
       </Seccion>
+
+      <Hoja abierta={eligiendo} onCerrar={() => setEligiendo(false)} titulo="Plan de corte">
+        {eligiendo && <ElegirPlan opciones={activos} elegidos={plan.map((x) => x.p.id)} onListo={guardarPlan} />}
+      </Hoja>
 
       <Hoja abierta={!!cortando} onCerrar={() => setCortando(null)} titulo={cortando ? `Corte en ${nombreCliente.get(cortando.cliente_id)}` : ''}>
         {cortando && <CorteForm parque={cortando} onListo={() => setCortando(null)} />}
