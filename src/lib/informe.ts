@@ -4,6 +4,7 @@ export interface FilaInforme {
   fecha: string
   trabajo: string
   importe: number
+  saldo: number
 }
 
 export interface DatosInforme {
@@ -17,6 +18,11 @@ export interface DatosInforme {
 
 const ddmmaaaa = (s: string) => s.split('-').reverse().join('/')
 const AZUL: [number, number, number] = [31, 45, 110]
+const VERDE: [number, number, number] = [30, 120, 60]
+const ROJO: [number, number, number] = [175, 40, 40]
+
+const estadoCobro = (importe: number, saldo: number) =>
+  saldo <= 0 ? 'Cobrado' : saldo < importe ? `Debe ${plata(saldo)}` : 'Sin cobrar'
 
 /** Arma el PDF con el formato de los informes que se le mandan a los clientes. */
 export async function generarInforme(d: DatosInforme): Promise<Blob> {
@@ -27,7 +33,8 @@ export async function generarInforme(d: DatosInforme): Promise<Blob> {
   const izq = 20
   const der = W - 20
   const colTrabajo = izq + 30
-  const anchoTrabajo = der - 40 - colTrabajo
+  const colImporte = der - 36
+  const anchoTrabajo = colImporte - 30 - colTrabajo
 
   let y = 22
   doc.setFont('helvetica', 'bold').setFontSize(16).setTextColor(0)
@@ -47,7 +54,8 @@ export async function generarInforme(d: DatosInforme): Promise<Blob> {
     doc.setFont('times', 'bolditalic').setFontSize(13).setTextColor(...AZUL)
     doc.text('Fecha', izq + 2, y)
     doc.text('Trabajo', colTrabajo + anchoTrabajo / 2, y, { align: 'center' })
-    doc.text('Importe', der - 2, y, { align: 'right' })
+    doc.text('Importe', colImporte, y, { align: 'right' })
+    doc.text('Estado', der - 2, y, { align: 'right' })
     y += 2.5
     doc.line(izq, y, der, y)
     doc.line(izq, y + 1, der, y + 1)
@@ -65,7 +73,11 @@ export async function generarInforme(d: DatosInforme): Promise<Blob> {
     }
     doc.text(ddmmaaaa(f.fecha), izq + 2, y)
     doc.text(lineas, colTrabajo, y)
-    doc.text(plata(f.importe), der - 2, y, { align: 'right' })
+    doc.text(plata(f.importe), colImporte, y, { align: 'right' })
+    const cobrado = f.saldo <= 0
+    doc.setFont('helvetica', cobrado ? 'normal' : 'bold').setTextColor(...(cobrado ? VERDE : ROJO))
+    doc.text(estadoCobro(f.importe, f.saldo), der - 2, y, { align: 'right' })
+    doc.setFont('helvetica', 'normal').setTextColor(0)
     y += Math.max(1, lineas.length) * 5 + 6
   }
 
@@ -109,12 +121,6 @@ export interface DatosInformeCortes {
   hasta: string
   filas: FilaCorte[]
 }
-
-const VERDE: [number, number, number] = [30, 120, 60]
-const ROJO: [number, number, number] = [175, 40, 40]
-
-const estadoCobro = (importe: number, saldo: number) =>
-  saldo <= 0 ? 'Cobrado' : saldo < importe ? `Debe ${plata(saldo)}` : 'Sin cobrar'
 
 /** Lista de trabajos hechos con su estado de cobro, con el mismo formato que el informe del cliente. */
 export async function generarInformeCortes(d: DatosInformeCortes): Promise<Blob> {

@@ -2,7 +2,7 @@ import { FileDown, Share2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { inicioDeEsteMes, RangoFechas } from '../components/RangoFechas'
-import { Boton, Cargando, Encabezado, Error, Lista, Seccion, Vacio } from '../components/ui'
+import { Boton, Cargando, Encabezado, Error, EstadoCobro, Lista, Seccion, Vacio } from '../components/ui'
 import { useDatos } from '../lib/api'
 import { fechaCorta, hoy, plata } from '../lib/format'
 import { entregarPdf, generarInforme, puedeCompartirArchivos, type FilaInforme } from '../lib/informe'
@@ -50,6 +50,7 @@ export function Informe() {
         fecha: t.fecha,
         trabajo: textoTrabajo(t, parqueDe.get(t.parque_id ?? '')),
         importe: t.importe,
+        saldo: t.saldo,
       }))
       const blob = await generarInforme({ cliente: cliente.nombre, detalle, desde, hasta, filas })
       await entregarPdf(blob, `Informe ${cliente.nombre} ${desde} a ${hasta}.pdf`, compartir)
@@ -125,7 +126,10 @@ export function Informe() {
                   <p className="truncate">{textoTrabajo(t, parqueDe.get(t.parque_id ?? ''))}</p>
                   <p className="text-sm text-musgo">{fechaCorta(t.fecha)}</p>
                 </div>
-                <span className="num shrink-0">{plata(t.importe)}</span>
+                <div className="shrink-0 text-right">
+                  <p className="num">{plata(t.importe)}</p>
+                  <EstadoCobro importe={t.importe} saldo={t.saldo} />
+                </div>
               </li>
             ))}
           </Lista>
