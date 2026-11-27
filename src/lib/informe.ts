@@ -86,22 +86,51 @@ export async function generarInforme(d: DatosInforme): Promise<Blob> {
     y += 11
   }
 
-  if (y > H - 25) {
+  pieTotales(doc, y, d.filas, 'Total a pagar')
+  return doc.output('blob')
+}
+
+type Pdf = InstanceType<(typeof import('jspdf'))['jsPDF']>
+
+/**
+ * Totales al pie: lo trabajado, lo cobrado y, en el recuadro, lo que falta pagar
+ * (suma de los saldos pendientes, no de los importes).
+ */
+function pieTotales(doc: Pdf, y: number, filas: { importe: number; saldo: number }[], etiquetaFalta: string) {
+  const W = doc.internal.pageSize.getWidth()
+  const H = doc.internal.pageSize.getHeight()
+  const izq = 16
+  const der = W - 15.5
+  if (y > H - 40) {
     doc.addPage()
     y = 20
   }
-  y -= 2
-  doc.setDrawColor(160).setLineWidth(0.3).line(izq - 4, y, der + 6, y)
-  y += 6
-  const total = plata(d.filas.reduce((s, f) => s + f.importe, 0))
-  doc.setFont('times', 'bolditalic').setFontSize(11).setTextColor(0)
-  doc.text('Suma total', izq - 4, y)
-  doc.setFont('times', 'bold').setFontSize(13)
-  const ancho = doc.getTextWidth(total) + 3
-  doc.text(total, der + 4.5, y, { align: 'right' })
-  doc.setDrawColor(0).setLineWidth(0.4).rect(der + 6 - ancho - 0.5, y - 4.8, ancho, 6.5)
+  const total = filas.reduce((s, f) => s + f.importe, 0)
+  const falta = filas.reduce((s, f) => s + Math.max(0, f.saldo), 0)
 
-  return doc.output('blob')
+  y -= 2
+  doc.setDrawColor(160).setLineWidth(0.3).line(izq, y, der + 1.5, y)
+  y += 6
+  const renglon = (texto: string, monto: number, color: [number, number, number] | number) => {
+    doc.setFont('times', 'bolditalic').setFontSize(11).setTextColor(0)
+    doc.text(texto, izq, y)
+    doc.setFont('times', 'bold')
+    if (typeof color === 'number') doc.setTextColor(color)
+    else doc.setTextColor(...color)
+    doc.text(plata(monto), der, y, { align: 'right' })
+    y += 6
+  }
+  renglon('Total trabajos', total, 0)
+  renglon('Cobrado', total - falta, VERDE)
+  y += 2
+
+  const textoFalta = plata(falta)
+  doc.setFont('times', 'bolditalic').setFontSize(12).setTextColor(0)
+  doc.text(etiquetaFalta, izq, y)
+  doc.setFont('times', 'bold').setFontSize(13).setTextColor(...(falta > 0 ? ROJO : VERDE))
+  const ancho = doc.getTextWidth(textoFalta) + 3
+  doc.text(textoFalta, der, y, { align: 'right' })
+  doc.setDrawColor(0).setLineWidth(0.4).rect(der + 1.5 - ancho - 0.5, y - 4.8, ancho, 6.5)
 }
 
 export interface FilaCorte {
@@ -192,33 +221,7 @@ export async function generarInformeCortes(d: DatosInformeCortes): Promise<Blob>
     y += 11
   }
 
-  if (y > H - 40) {
-    doc.addPage()
-    y = 20
-  }
-  const total = d.filas.reduce((s, f) => s + f.importe, 0)
-  const falta = d.filas.reduce((s, f) => s + Math.max(0, f.saldo), 0)
-  y -= 2
-  doc.setDrawColor(160).setLineWidth(0.3).line(izq - 4, y, der + 6, y)
-  y += 6
-  doc.setFont('times', 'bolditalic').setFontSize(11).setTextColor(0)
-  doc.text('Cobrado', izq - 4, y)
-  doc.setFont('times', 'bold').setTextColor(...VERDE)
-  doc.text(plata(total - falta), der + 4.5, y, { align: 'right' })
-  y += 6
-  doc.setFont('times', 'bolditalic').setTextColor(0)
-  doc.text('Falta cobrar', izq - 4, y)
-  doc.setFont('times', 'bold').setTextColor(...(falta > 0 ? ROJO : VERDE))
-  doc.text(plata(falta), der + 4.5, y, { align: 'right' })
-  y += 8
-  const textoTotal = plata(total)
-  doc.setFont('times', 'bolditalic').setFontSize(11).setTextColor(0)
-  doc.text('Suma total', izq - 4, y)
-  doc.setFont('times', 'bold').setFontSize(13)
-  const ancho = doc.getTextWidth(textoTotal) + 3
-  doc.text(textoTotal, der + 4.5, y, { align: 'right' })
-  doc.setDrawColor(0).setLineWidth(0.4).rect(der + 6 - ancho - 0.5, y - 4.8, ancho, 6.5)
-
+  pieTotales(doc, y, d.filas, 'Falta cobrar')
   return doc.output('blob')
 }
 
