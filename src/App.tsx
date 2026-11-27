@@ -14,6 +14,7 @@ import { FormPago } from './pages/FormPago'
 import { FormParque } from './pages/FormParque'
 import { FormTrabajo } from './pages/FormTrabajo'
 import { Gastos } from './pages/Gastos'
+import { Informe } from './pages/Informe'
 import { Inicio } from './pages/Inicio'
 import { Login } from './pages/Login'
 import { ParquePagina } from './pages/Parque'
@@ -44,6 +45,7 @@ export function App() {
         <Route path="clientes/nuevo" element={<FormCliente />} />
         <Route path="clientes/:id" element={<ClientePagina />} />
         <Route path="clientes/:id/editar" element={<FormCliente />} />
+        <Route path="clientes/:id/informe" element={<Informe />} />
         <Route path="parques/nuevo" element={<FormParque />} />
         <Route path="parques/:id" element={<ParquePagina />} />
         <Route path="parques/:id/editar" element={<FormParque />} />

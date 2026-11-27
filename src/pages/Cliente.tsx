@@ -1,4 +1,4 @@
-import { Pencil, Phone, Plus } from 'lucide-react'
+import { FileText, Pencil, Phone, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { PagoHoja, TrabajoHoja } from '../components/TrabajoHoja'
@@ -119,7 +119,14 @@ export function ClientePagina() {
         )}
       </Seccion>
 
-      <Seccion titulo="Historial">
+      <Seccion
+        titulo="Historial"
+        accion={
+          <Link to={`/clientes/${cliente.id}/informe`} className="inline-flex min-h-11 items-center gap-1 text-pasto-claro">
+            <FileText className="size-5" /> Informe PDF
+          </Link>
+        }
+      >
         {historial.length === 0 ? (
           <Vacio>Sin trabajos ni pagos todavía.</Vacio>
         ) : (
