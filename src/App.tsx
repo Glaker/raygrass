@@ -15,6 +15,7 @@ import { FormParque } from './pages/FormParque'
 import { FormTrabajo } from './pages/FormTrabajo'
 import { Gastos } from './pages/Gastos'
 import { Informe } from './pages/Informe'
+import { InformeCortes } from './pages/InformeCortes'
 import { Inicio } from './pages/Inicio'
 import { Login } from './pages/Login'
 import { ParquePagina } from './pages/Parque'
@@ -57,6 +58,7 @@ export function App() {
         <Route path="gastos" element={<Gastos />} />
         <Route path="gastos/:id" element={<FormGasto />} />
         <Route path="resumen" element={<Resumen />} />
+        <Route path="resumen/cortes" element={<InformeCortes />} />
         <Route path="cuenta" element={<Cuenta />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

@@ -1,26 +1,12 @@
 import { FileDown, Share2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Boton, Campo, Cargando, Encabezado, Entrada, Error, Lista, Seccion, Vacio } from '../components/ui'
+import { inicioDeEsteMes, RangoFechas } from '../components/RangoFechas'
+import { Boton, Cargando, Encabezado, Error, Lista, Seccion, Vacio } from '../components/ui'
 import { useDatos } from '../lib/api'
-import { fechaCorta, hoy, isoLocal, plata } from '../lib/format'
+import { fechaCorta, hoy, plata } from '../lib/format'
 import { entregarPdf, generarInforme, puedeCompartirArchivos, type FilaInforme } from '../lib/informe'
 import type { Parque, Trabajo } from '../lib/types'
-
-const inicioMes = (desplazar = 0) => {
-  const d = new Date()
-  return isoLocal(new Date(d.getFullYear(), d.getMonth() + desplazar, 1))
-}
-const finMes = (desplazar = 0) => {
-  const d = new Date()
-  return isoLocal(new Date(d.getFullYear(), d.getMonth() + desplazar + 1, 0))
-}
-
-const ATAJOS = [
-  { texto: 'Este mes', desde: () => inicioMes(), hasta: () => hoy() },
-  { texto: 'Mes pasado', desde: () => inicioMes(-1), hasta: () => finMes(-1) },
-  { texto: 'Este año', desde: () => `${new Date().getFullYear()}-01-01`, hasta: () => hoy() },
-]
 
 const textoTrabajo = (t: Trabajo, parque?: Parque) =>
   t.descripcion?.trim() || (t.tipo === 'corte' ? `Corte en ${parque?.nombre ?? 'el lugar'}` : 'Trabajo particular')
@@ -28,7 +14,7 @@ const textoTrabajo = (t: Trabajo, parque?: Parque) =>
 export function Informe() {
   const { id } = useParams()
   const { clientes, parques, trabajos, cargando, error } = useDatos()
-  const [desde, setDesde] = useState(inicioMes)
+  const [desde, setDesde] = useState(inicioDeEsteMes)
   const [hasta, setHasta] = useState(hoy)
   const [lugar, setLugar] = useState<string | null>(null)
   const [generando, setGenerando] = useState(false)
@@ -79,34 +65,14 @@ export function Informe() {
       <Encabezado titulo={`Informe de ${cliente.nombre}`} atras />
       <Error error={error} />
 
-      <div className="flex flex-wrap gap-2">
-        {ATAJOS.map((a) => {
-          const activo = desde === a.desde() && hasta === a.hasta()
-          return (
-            <button
-              key={a.texto}
-              type="button"
-              aria-pressed={activo}
-              onClick={() => {
-                setDesde(a.desde())
-                setHasta(a.hasta())
-              }}
-              className={`min-h-10 rounded-full border px-4 ${activo ? 'border-pasto bg-pasto-osc/40 font-semibold' : 'border-tallo bg-hoja text-musgo'}`}
-            >
-              {a.texto}
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <Campo etiqueta="Desde">
-          {(i) => <Entrada id={i} type="date" required value={desde} max={hasta} onChange={(e) => e.target.value && setDesde(e.target.value)} />}
-        </Campo>
-        <Campo etiqueta="Hasta">
-          {(i) => <Entrada id={i} type="date" required value={hasta} min={desde} onChange={(e) => e.target.value && setHasta(e.target.value)} />}
-        </Campo>
-      </div>
+      <RangoFechas
+        desde={desde}
+        hasta={hasta}
+        onChange={(d, h) => {
+          setDesde(d)
+          setHasta(h)
+        }}
+      />
 
       {lugares.length > 1 && (
         <fieldset className="mt-4">

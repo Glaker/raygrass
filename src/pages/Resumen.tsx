@@ -1,3 +1,4 @@
+import { FileText } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Cargando, Encabezado, Error, Lista, Seccion, Segmentado, Vacio } from '../components/ui'
@@ -69,7 +70,14 @@ export function Resumen() {
 
   return (
     <>
-      <Encabezado titulo="Resumen" />
+      <Encabezado
+        titulo="Resumen"
+        accion={
+          <Link to="/resumen/cortes" className="inline-flex min-h-11 items-center gap-1 text-pasto-claro">
+            <FileText className="size-5" /> Cortes y cobros
+          </Link>
+        }
+      />
       <Error error={error} />
       <Segmentado
         etiqueta="Período"
